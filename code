@@ -1,0 +1,70 @@
+from PIL import Image
+
+# Function to convert text to binary
+def text_to_bin(text):
+    return ''.join([format(ord(i), '08b') for i in text])
+
+# Function to convert binary to text
+def bin_to_text(binary):
+    chars = [binary[i:i+8] for i in range(0, len(binary), 8)]
+    return ''.join([chr(int(char, 2)) for char in chars])
+
+# Hide text in image
+def encode_text_into_image(image_path, text, output_path):
+    img = Image.open(image_path)
+    binary_text = text_to_bin(text) + '1111111111111110'  # Delimiter
+    data_index = 0
+
+    img_data = img.getdata()
+    new_data = []
+
+    for pixel in img_data:
+        if data_index < len(binary_text):
+            r, g, b = pixel
+            r = r & ~1 | int(binary_text[data_index])
+            data_index += 1
+            if data_index < len(binary_text):
+                g = g & ~1 | int(binary_text[data_index])
+                data_index += 1
+            if data_index < len(binary_text):
+                b = b & ~1 | int(binary_text[data_index])
+                data_index += 1
+            new_data.append((r, g, b))
+        else:
+            new_data.append(pixel)
+
+    encoded_img = Image.new(img.mode, img.size)
+    encoded_img.putdata(new_data)
+    encoded_img.save(output_path)
+    print(f"Text encoded successfully into {output_path}")
+
+# Extract hidden text
+def decode_text_from_image(image_path):
+    img = Image.open(image_path)
+    img_data = img.getdata()
+
+    binary_data = ""
+    for pixel in img_data:
+        for color in pixel[:3]:  # R, G, B
+            binary_data += str(color & 1)
+
+    end_delimiter = '1111111111111110'
+    end_idx = binary_data.find(end_delimiter)
+    if end_idx != -1:
+        binary_data = binary_data[:end_idx]
+        return bin_to_text(binary_data)
+    else:
+        return "No hidden message found."
+
+# Example usage
+if __name__ == "__main__":
+    original = "sample_image.png"
+    output = "encoded_image.png"
+    secret_message = "Hello, this is a hidden message!"
+
+    # Encode
+    encode_text_into_image(original, secret_message, output)
+
+    # Decode
+    hidden_message = decode_text_from_image(output)
+    print("Decoded Message:", hidden_message)
